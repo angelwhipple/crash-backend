@@ -2,7 +2,7 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Authing, Friending, Posting, Sessioning } from "./app";
+import { Authing, Friending, Posting, Sessioning, Grouping, Locating, Requesting } from "./app";
 import { PostOptions } from "./concepts/posting";
 import { SessionDoc } from "./concepts/sessioning";
 import Responses from "./responses";
@@ -14,6 +14,10 @@ import { z } from "zod";
  */
 class Routes {
   // Synchronize the concepts from `app.ts`.
+
+  /**
+   * USERS
+   */
 
   @Router.get("/session")
   async getSessionUser(session: SessionDoc) {
@@ -33,9 +37,9 @@ class Routes {
   }
 
   @Router.post("/users")
-  async createUser(session: SessionDoc, username: string, password: string) {
+  async createUser(session: SessionDoc, username: string, password: string, email: string) {
     Sessioning.isLoggedOut(session);
-    return await Authing.create(username, password);
+    return await Authing.create(username, password, email);
   }
 
   @Router.patch("/users/username")
@@ -54,12 +58,14 @@ class Routes {
   async deleteUser(session: SessionDoc) {
     const user = Sessioning.getUser(session);
     Sessioning.end(session);
+    await Requesting.deleteBySender(user);
+    await Requesting.deleteByRecipient(user);
     return await Authing.delete(user);
   }
 
   @Router.post("/login")
-  async logIn(session: SessionDoc, username: string, password: string) {
-    const u = await Authing.authenticate(username, password);
+  async logIn(session: SessionDoc, email: string, password: string) {
+    const u = await Authing.authenticate(email, password);
     Sessioning.start(session, u._id);
     return { msg: "Logged in!" };
   }
@@ -69,6 +75,10 @@ class Routes {
     Sessioning.end(session);
     return { msg: "Logged out!" };
   }
+
+  /**
+   * POSTS
+   */
 
   @Router.get("/posts")
   @Router.validate(z.object({ author: z.string().optional() }))
@@ -105,6 +115,10 @@ class Routes {
     await Posting.assertAuthorIsUser(oid, user);
     return Posting.delete(oid);
   }
+
+  /**
+   * FRIENDS
+   */
 
   @Router.get("/friends")
   async getFriends(session: SessionDoc) {
@@ -152,6 +166,150 @@ class Routes {
     const fromOid = (await Authing.getUserByUsername(from))._id;
     return await Friending.rejectRequest(fromOid, user);
   }
+
+  /**
+   * GROUPS
+   */
+
+  @Router.get("/groups")
+  async getGroups() {
+    return await Grouping.getAllGroups();
+  }
+
+  @Router.post("/groups")
+  async createGroup(session: SessionDoc, name: string, capacity: number, privacy: string, location: string)  {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(location);
+    await Grouping.assertGoodInputs(name, privacy, capacity);
+    await Locating.assertLocationExists(oid);
+    return await Grouping.create(name, user, capacity, privacy, oid);
+  }
+
+  @Router.post("/groups/requests/:id")
+  async openGroupRequest(session: SessionDoc, id: string, message?: string) {
+    // Want to add an optional parameter, expires: Date
+    const groupId = new ObjectId(id);
+    await Grouping.assertGroupExists(groupId);
+    const sender = Sessioning.getUser(session);
+    const recipient = await Grouping.getOwner(groupId);
+    return await Requesting.open(sender, recipient, "group", message)
+    // Expiring.allocate() for expiring request
+  }
+
+  @Router.patch("/groups/requests/:id")
+  async replyToGroupRequest(session: SessionDoc, id: string, accept: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    const response =  await Requesting.respond(oid, user, accept);
+    if (response.accepted) {
+      // Grouping.addUserToGroup(oid, user)
+    }
+    return response;
+  }
+
+  @Router.delete("/groups/:id")
+  async disbandGroup(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    await Requesting.deleteByResourceType(oid, "group");
+    return await Grouping.disband(oid, user)
+  }
+
+  /**
+   * LOCATIONS
+   */
+
+  @Router.get("/locations")
+  @Router.validate(z.object({ city: z.string().optional(), state: z.string().optional() }))
+  async getLocations(city?: string,state?: string) {
+    if (city && state) {
+      return await Locating.getByCity(city, state);
+    } else if (state) {
+      return await Locating.getByState(state);
+    }
+    return await Locating.getLocations();
+  }
+
+  @Router.post("/locations")
+  async createLocation(name: string, street: string, city: string, state: string, zipcode: string, latitude: number, longitude: number) {
+    return await Locating.create(name, street, city, state, zipcode, latitude, longitude);
+  }
+
+  @Router.delete("/locations/:id")
+  async deleteLocation(id: string) {
+    const oid = new ObjectId(id);
+    return await Locating.delete(oid);
+  }
+
+  /**
+   * REQUESTS
+   */
+
+  @Router.get("/requests/sent")
+  async getSentRequests(session: SessionDoc) {
+    const user = Sessioning.getUser(session);
+    return await Requesting.getSentRequests(user);
+  }
+
+  @Router.get("/requests/received")
+  async getReceivedRequests(session: SessionDoc) {
+    const user = Sessioning.getUser(session);
+    return await Requesting.getReceivedRequests(user);
+  }
+
+  @Router.delete("/requests/:id")
+  async withdrawRequest(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    return await Requesting.delete(oid, user);
+  }
+
+  /**
+   * EVENTS
+   */
+
+  @Router.post("/events")
+  async createEvent(session: SessionDoc, name: string, group: string, startTime: Date, endTime: Date, capacity: number, location: ObjectId) {
+    // Sessioning.getUser()
+    // Eventing.create()
+    // Expiring.allocate()
+  }
+
+  @Router.get("/events")
+  async getActiveEvents() {
+    // Eventing.getAllEvents()
+  }
+
+  @Router.get("/events")
+  async openEventRequest(session: SessionDoc) {
+    // Sessioning.getUser()
+    // Eventing.assertEventExists()
+    // Eventing.getHost()
+    // Requesting.open()
+    // Expiring.allocate() for expiring request
+  }
+
+  @Router.patch("/events/requests/:id")
+  async replyToEventRequest(session: SessionDoc, id: string, accept: string) {
+    // Sessioning.getUser()
+    // Requesting.respond()
+    // Eventing.register()
+  }
+
+  @Router.get("/events")
+  async unregisterFromEvent(session: SessionDoc) {
+    // Sessioning.getUser()
+    // Eventing.unregister()
+  }
+
+  @Router.delete("/events")
+  async deleteEvent(session: SessionDoc, id: string) {
+    // Sessioning.getUser()
+    // Requesting.deleteByResourceType()
+    // Eventing.delete()
+    // Eventing.deallocate()
+  }
+
 }
 
 /** The web app. */

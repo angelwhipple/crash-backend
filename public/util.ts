@@ -24,13 +24,13 @@ const operations: Operation[] = [
     name: "Create User",
     endpoint: "/api/users",
     method: "POST",
-    fields: { username: "input", password: "input" },
+    fields: { username: "input", password: "input", email: "input" },
   },
   {
     name: "Login",
     endpoint: "/api/login",
     method: "POST",
-    fields: { username: "input", password: "input" },
+    fields: { email: "input", password: "input" },
   },
   {
     name: "Logout",
@@ -57,6 +57,77 @@ const operations: Operation[] = [
     fields: { username: "input" },
   },
   {
+    name: "Get sent requests",
+    endpoint: "/api/requests/sent",
+    method: "GET",
+    fields: {},
+  },
+  {
+    name: "Get received requests",
+    endpoint: "/api/requests/received",
+    method: "GET",
+    fields: {},
+  },
+  {
+    name: "Accept/decline group request",
+    endpoint: "/api/groups/requests/:id",
+    method: "PATCH",
+    fields: {
+      id: "input",
+      accept: "input"
+    }
+  },
+  {
+    name: "Withdraw request",
+    endpoint: "/api/requests/:id",
+    method: "DELETE",
+    fields: {
+      id: "input",
+    }
+  },
+  {
+    name: "Get All Groups",
+    endpoint: "/api/groups",
+    method: "GET",
+    fields: {}
+  },
+  {
+    name: "Create Group",
+    endpoint: "/api/groups",
+    method: "POST",
+    fields: { name: "input", capacity: "input", privacy: "input", location: "input" }
+  },
+  {
+    name: "Request to Join Group (by id)",
+    endpoint: "/api/groups/requests/:id",
+    method: "POST",
+    fields: { id: "input", message: "textarea" }
+  },
+  {
+    name: "Delete Group",
+    endpoint: "/api/groups/:id",
+    method: "DELETE",
+    fields: { id: "input", }
+  },
+  {
+    name: "Get Locations (empty for all)",
+    endpoint: "/api/locations",
+    method: "GET",
+    fields: { city: "input", state: "input" }
+  },
+  {
+    name: "Tag New Location",
+    endpoint: "/api/locations",
+    method: "POST",
+    fields: { name: "input", street: "input", city: "input", state: "input", zipcode: "input", latitude: "input", longitude: "input" }
+  },
+  {
+    name: "Delete Location",
+    endpoint: "/api/locations/:id",
+    method: "DELETE",
+    fields: { id: "input" }
+  },
+  {
     name: "Get Posts (empty for all)",
     endpoint: "/api/posts",
     method: "GET",
@@ -80,9 +151,30 @@ const operations: Operation[] = [
     method: "DELETE",
     fields: { id: "input" },
   },
-  //
-  // ...
-  //
+  {
+    name: "Create New Event",
+    endpoint: "/api/events",
+    method: "POST",
+    fields: {}
+  },
+  {
+    name: "RSVP to Event",
+    endpoint: "/api/events/:id",
+    method: "PUT",
+    fields: { id: "input" }
+  },
+  {
+    name: "Unregister from Event",
+    endpoint: "/api/events/:id",
+    method: "PUT",
+    fields: { id: "input" }
+  },
+  {
+    name: "Delete Event",
+    endpoint: "/api/events/:id",
+    method: "DELETE",
+    fields: { id: "input" }
+  }
 ];
 
 /*

@@ -5,6 +5,7 @@ import { BadValuesError, NotAllowedError, NotFoundError } from "./errors";
 export interface UserDoc extends BaseDoc {
   username: string;
   password: string;
+  email: string
 }
 
 /**
@@ -23,9 +24,9 @@ export default class AuthenticatingConcept {
     void this.users.collection.createIndex({ username: 1 });
   }
 
-  async create(username: string, password: string) {
-    await this.assertGoodCredentials(username, password);
-    const _id = await this.users.createOne({ username, password });
+  async create(username: string, password: string, email: string) {
+    await this.assertGoodCredentials(username, password, email);
+    const _id = await this.users.createOne({ username, password, email });
     return { msg: "User created successfully!", user: await this.users.readOne({ _id }) };
   }
 
@@ -66,8 +67,8 @@ export default class AuthenticatingConcept {
     return users;
   }
 
-  async authenticate(username: string, password: string) {
-    const user = await this.users.readOne({ username, password });
+  async authenticate(email: string, password: string) {
+    const user = await this.users.readOne({ email, password });
     if (!user) {
       throw new NotAllowedError("Username or password is incorrect.");
     }
@@ -105,16 +106,38 @@ export default class AuthenticatingConcept {
     }
   }
 
-  private async assertGoodCredentials(username: string, password: string) {
-    if (!username || !password) {
-      throw new BadValuesError("Username and password must be non-empty!");
+  private async assertGoodCredentials(username: string, password: string, email: string) {
+    if (!username || !password || !email) {
+      throw new BadValuesError("Username, email, and password must be non-empty!");
     }
     await this.assertUsernameUnique(username);
+    await this.assertValidEmail(email);
   }
 
   private async assertUsernameUnique(username: string) {
     if (await this.users.readOne({ username })) {
       throw new NotAllowedError(`User with username ${username} already exists!`);
+    }
+  }
+
+  private async assertValidEmail(email: string) {
+    const account = await this.users.readOne({ email });
+    if (account) {
+      throw new NotAllowedError(`User with email ${email} already exists!`);
+    }
+
+    const personalDomains = [
+      "gmail.com",
+      "yahoo.com",
+      "hotmail.com",
+      "outlook.com",
+      "icloud.com",
+      "aol.com"
+    ];
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const domain = email.split('@')[1];
+    if (!regex.test(email) || personalDomains.includes(domain)) {
+      throw new BadValuesError("Please provide a valid work/school email address.");
     }
   }
 }
