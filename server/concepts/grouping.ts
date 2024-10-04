@@ -1,7 +1,6 @@
 import { ObjectId } from "mongodb";
 import DocCollection, { BaseDoc } from "../framework/doc";
 import { AlreadyExistsError, BadValuesError, NotAllowedError, NotFoundError } from "./errors";
-import { boolean } from "zod";
 
 export interface GroupDoc extends BaseDoc {
   name: string;
