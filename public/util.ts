@@ -159,12 +159,6 @@ const operations: Operation[] = [
     fields: {},
   },
   {
-    name: "Search events by name",
-    endpoint: "/api/events/name",
-    method: "GET",
-    fields: { name: "input" },
-  },
-  {
     name: "See upcoming events",
     endpoint: "/api/events/upcoming",
     method: "GET",
@@ -175,6 +169,12 @@ const operations: Operation[] = [
     endpoint: "/api/events/past",
     method: "GET",
     fields: {},
+  },
+  {
+    name: "Search events by name",
+    endpoint: "/api/events/name",
+    method: "GET",
+    fields: { name: "input" },
   },
   {
     name: "Create new event (time format: MM/DD/YYYY TT:TT AM)",
