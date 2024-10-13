@@ -2,7 +2,7 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Authing, Friending, Posting, Sessioning, Grouping, Locating, Requesting } from "./app";
+import { Authing, Friending, Posting, Sessioning, Grouping, Locating, Requesting, Eventing } from "./app";
 import { PostOptions } from "./concepts/posting";
 import { SessionDoc } from "./concepts/sessioning";
 import Responses from "./responses";
@@ -133,38 +133,10 @@ class Routes {
     return await Friending.removeFriend(user, friendOid);
   }
 
-  @Router.get("/friend/requests")
-  async getRequests(session: SessionDoc) {
+  @Router.get("/friends/requests")
+  async getFriendRequests(session: SessionDoc) {
     const user = Sessioning.getUser(session);
-    return await Responses.friendRequests(await Friending.getRequests(user));
-  }
-
-  @Router.post("/friend/requests/:to")
-  async sendFriendRequest(session: SessionDoc, to: string) {
-    const user = Sessioning.getUser(session);
-    const toOid = (await Authing.getUserByUsername(to))._id;
-    return await Friending.sendRequest(user, toOid);
-  }
-
-  @Router.delete("/friend/requests/:to")
-  async removeFriendRequest(session: SessionDoc, to: string) {
-    const user = Sessioning.getUser(session);
-    const toOid = (await Authing.getUserByUsername(to))._id;
-    return await Friending.removeRequest(user, toOid);
-  }
-
-  @Router.put("/friend/accept/:from")
-  async acceptFriendRequest(session: SessionDoc, from: string) {
-    const user = Sessioning.getUser(session);
-    const fromOid = (await Authing.getUserByUsername(from))._id;
-    return await Friending.acceptRequest(fromOid, user);
-  }
-
-  @Router.put("/friend/reject/:from")
-  async rejectFriendRequest(session: SessionDoc, from: string) {
-    const user = Sessioning.getUser(session);
-    const fromOid = (await Authing.getUserByUsername(from))._id;
-    return await Friending.rejectRequest(fromOid, user);
+    return await Responses.Requests(await Requesting.getRequests(user, "friend"));
   }
 
   /**
@@ -177,42 +149,42 @@ class Routes {
   }
 
   @Router.post("/groups")
-  async createGroup(session: SessionDoc, name: string, capacity: number, privacy: string, location: string)  {
+  async createGroup(session: SessionDoc, name: string, capacity: string, privacy: string, location: string)  {
     const user = Sessioning.getUser(session);
-    const oid = new ObjectId(location);
-    await Grouping.assertGoodInputs(name, privacy, capacity);
-    await Locating.assertLocationExists(oid);
-    return await Grouping.create(name, user, capacity, privacy, oid);
+    const locationId = new ObjectId(location);
+    await Locating.assertLocationExists(locationId);
+    return await Grouping.create(name, user, capacity, privacy, locationId);
   }
 
-  @Router.post("/groups/requests/:id")
-  async openGroupRequest(session: SessionDoc, id: string, message?: string) {
-    // Want to add an optional parameter, expires: Date
-    const groupId = new ObjectId(id);
-    await Grouping.assertGroupExists(groupId);
-    const sender = Sessioning.getUser(session);
-    const recipient = await Grouping.getOwner(groupId);
-    return await Requesting.open(sender, recipient, "group", message)
-    // Expiring.allocate() for expiring request
-  }
-
-  @Router.patch("/groups/requests/:id")
-  async replyToGroupRequest(session: SessionDoc, id: string, accept: string) {
+  @Router.put("/groups/:id")
+  async renameGroup(session: SessionDoc, id: string, name: string) {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(id);
-    const response =  await Requesting.respond(oid, user, accept);
-    if (response.accepted) {
-      // Grouping.addUserToGroup(oid, user)
-    }
-    return response;
+    return await Grouping.rename(oid, user, name);
+  }
+
+  @Router.put("/groups/members/add/:id")
+  async addGroupMember(id: string, user: string) {
+    const oid = new ObjectId(id);
+    const newMemberId = new ObjectId(user);
+    await Grouping.addMember(oid, newMemberId);
+
+  }
+
+  @Router.put("/groups/members/remove/:id")
+  async removeGroupMember(id: string, member: string) {
+    const oid = new ObjectId(id);
+    const memberId = new ObjectId(member);
+    await Grouping.removeMember(oid, memberId);
   }
 
   @Router.delete("/groups/:id")
   async disbandGroup(session: SessionDoc, id: string) {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(id);
-    await Requesting.deleteByResourceType(oid, "group");
-    return await Grouping.disband(oid, user)
+    const response = await Grouping.disband(oid, user);
+    await Requesting.deleteByType(oid, "group");
+    return response;
   }
 
   /**
@@ -226,13 +198,25 @@ class Routes {
       return await Locating.getByCity(city, state);
     } else if (state) {
       return await Locating.getByState(state);
+    } else if (city) {
+      return await Locating.getByState(city);
     }
     return await Locating.getLocations();
   }
 
   @Router.post("/locations")
-  async createLocation(name: string, street: string, city: string, state: string, zipcode: string, latitude: number, longitude: number) {
-    return await Locating.create(name, street, city, state, zipcode, latitude, longitude);
+  @Router.validate(
+    z.object({
+      name: z.string().min(1),
+      street: z.string().min(1),
+      city: z.string().min(1),
+      state: z.string().min(1),
+      zipcode: z.string().min(1),
+      latitude: z.string().min(1),
+      longitude: z.string().min(1)
+    }))
+  async createLocation(name: string, street: string, city: string, state: string, zipcode: string, latitude: string, longitude: string) {
+    return await Locating.create(name, street, city, state, zipcode, Number(latitude), Number(longitude));
   }
 
   @Router.delete("/locations/:id")
@@ -245,23 +229,52 @@ class Routes {
    * REQUESTS
    */
 
-  @Router.get("/requests/sent")
-  async getSentRequests(session: SessionDoc) {
-    const user = Sessioning.getUser(session);
-    return await Requesting.getSentRequests(user);
-  }
-
-  @Router.get("/requests/received")
-  async getReceivedRequests(session: SessionDoc) {
-    const user = Sessioning.getUser(session);
-    return await Requesting.getReceivedRequests(user);
-  }
-
-  @Router.delete("/requests/:id")
-  async withdrawRequest(session: SessionDoc, id: string) {
-    const user = Sessioning.getUser(session);
+  @Router.post("/requests/:category/:id")
+  async openRequest(session: SessionDoc, category: "friend" | "group" | "event", id: string, message?: string) {
     const oid = new ObjectId(id);
-    return await Requesting.delete(oid, user);
+    const sender = Sessioning.getUser(session);
+    let recipient;
+    switch (category) {
+      case "friend":
+        recipient = oid;
+        await Friending.assertNotFriends(sender, recipient);
+        break;
+      case "group": recipient = await Grouping.getOwner(oid); break;
+      case "event": recipient = await Eventing.getHost(oid); break;
+    }
+    return await Requesting.open(sender, recipient!, oid, category, message);
+  }
+
+  @Router.get("/requests")
+  async getRequests(session: SessionDoc) {
+    const user = Sessioning.getUser(session);
+    return await Requesting.getRequests(user);
+  }
+
+  @Router.put("/requests/accept/:requestId")
+  async acceptRequest(session: SessionDoc, requestId: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(requestId);
+    const response =  await Requesting.respond(oid, user, true)
+    switch (response.request!.category) {
+      case "friend": return await Friending.addFriend(response.request!.sender, response.request!.recipient);
+      case "group": return await Grouping.addMember(response.request!.resource, response.request!.sender);
+      case "event": return await Eventing.register(response.request!.resource, response.request!.sender);
+    }
+  }
+
+  @Router.put("/requests/decline/:requestId")
+  async declineRequest(session: SessionDoc, requestId: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(requestId);
+    return await Requesting.respond(oid, user, false)
+  }
+
+  @Router.delete("/requests/:requestId")
+  async withdrawRequest(session: SessionDoc, requestId: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(requestId);
+    return await Requesting.withdraw(oid, user);
   }
 
   /**
@@ -269,47 +282,60 @@ class Routes {
    */
 
   @Router.post("/events")
-  async createEvent(session: SessionDoc, name: string, group: string, startTime: Date, endTime: Date, capacity: number, location: ObjectId) {
-    // Sessioning.getUser()
-    // Eventing.create()
-    // Expiring.allocate()
+  async createEvent(session: SessionDoc, name: string, group: string, start: string, end: string, capacity: string, location: string) {
+    const user = Sessioning.getUser(session);
+    const userId = new ObjectId(user);
+    const groupId = new ObjectId(group);
+    const locationId = new ObjectId(location);
+    await Grouping.assertGroupExists(groupId);
+    await Locating.assertLocationExists(locationId);
+    return await Eventing.create(name, groupId, userId, Number(capacity), locationId, new Date(start), new Date(end));
   }
 
   @Router.get("/events")
-  async getActiveEvents() {
-    // Eventing.getAllEvents()
+  async getEvents() {
+    return await Eventing.getEvents();
   }
 
-  @Router.get("/events")
-  async openEventRequest(session: SessionDoc) {
-    // Sessioning.getUser()
-    // Eventing.assertEventExists()
-    // Eventing.getHost()
-    // Requesting.open()
-    // Expiring.allocate() for expiring request
+  @Router.get("/events/name")
+  async filterEventsByName(name: string) {
+    return await Eventing.getByName(name);
   }
 
-  @Router.patch("/events/requests/:id")
-  async replyToEventRequest(session: SessionDoc, id: string, accept: string) {
-    // Sessioning.getUser()
-    // Requesting.respond()
-    // Eventing.register()
+  @Router.get("/events/:filter")
+  async filterEventsByTime(filter: string) {
+    return await Eventing.getEvents(filter);
   }
 
-  @Router.get("/events")
-  async unregisterFromEvent(session: SessionDoc) {
-    // Sessioning.getUser()
-    // Eventing.unregister()
+  @Router.put("/events/:id")
+  async renameEvent(session: SessionDoc, id: string, name: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    return await Eventing.rename(oid, user, name);
+  }
+
+  @Router.put("/events/register/:id")
+  async registerForEvent(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    return await Eventing.register(oid, user);
+  }
+
+  @Router.put("/events/unregister/:id")
+  async unregisterFromEvent(session: SessionDoc, id: string ) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    return await Eventing.unregister(oid, user);
   }
 
   @Router.delete("/events")
   async deleteEvent(session: SessionDoc, id: string) {
-    // Sessioning.getUser()
-    // Requesting.deleteByResourceType()
-    // Eventing.delete()
-    // Eventing.deallocate()
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    const response = await Eventing.delete(oid, user);
+    await Requesting.deleteByType(oid, "event");
+    return response;
   }
-
 }
 
 /** The web app. */

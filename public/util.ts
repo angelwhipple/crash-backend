@@ -57,24 +57,25 @@ const operations: Operation[] = [
     fields: { username: "input" },
   },
   {
-    name: "Get sent requests",
-    endpoint: "/api/requests/sent",
+    name: "See all requests",
+    endpoint: "/api/requests",
     method: "GET",
     fields: {},
   },
   {
-    name: "Get received requests",
-    endpoint: "/api/requests/received",
-    method: "GET",
-    fields: {},
-  },
-  {
-    name: "Accept/decline group request",
-    endpoint: "/api/groups/requests/:id",
+    name: "Accept a request",
+    endpoint: "/api/requests/accept/:id",
     method: "PATCH",
     fields: {
-      id: "input",
-      accept: "input"
+      id: "input"
+    }
+  },
+  {
+    name: "Decline a request",
+    endpoint: "/api/requests/decline/:id",
+    method: "PATCH",
+    fields: {
+      id: "input"
     }
   },
   {
@@ -86,94 +87,148 @@ const operations: Operation[] = [
     }
   },
   {
-    name: "Get All Groups",
-    endpoint: "/api/groups",
-    method: "GET",
-    fields: {}
-  },
-  {
-    name: "Create Group",
-    endpoint: "/api/groups",
-    method: "POST",
-    fields: { name: "input", capacity: "input", privacy: "input", location: "input" }
-  },
-  {
-    name: "Request to Join Group (by id)",
-    endpoint: "/api/groups/requests/:id",
-    method: "POST",
-    fields: { id: "input", message: "textarea" }
-  },
-  {
-    name: "Delete Group",
-    endpoint: "/api/groups/:id",
-    method: "DELETE",
-    fields: { id: "input", }
-  },
-  {
-    name: "Get Locations (empty for all)",
+    name: "Get locations (empty for all)",
     endpoint: "/api/locations",
     method: "GET",
     fields: { city: "input", state: "input" }
   },
   {
-    name: "Tag New Location",
+    name: "Tag a new location",
     endpoint: "/api/locations",
     method: "POST",
     fields: { name: "input", street: "input", city: "input", state: "input", zipcode: "input", latitude: "input", longitude: "input" }
   },
   {
-    name: "Delete Location",
+    name: "Delete a location",
     endpoint: "/api/locations/:id",
     method: "DELETE",
     fields: { id: "input" }
   },
   {
-    name: "Get Posts (empty for all)",
-    endpoint: "/api/posts",
+    name: "See all groups",
+    endpoint: "/api/groups",
     method: "GET",
-    fields: { author: "input" },
-  },
-  {
-    name: "Create Post",
-    endpoint: "/api/posts",
-    method: "POST",
-    fields: { content: "input" },
-  },
-  {
-    name: "Update Post",
-    endpoint: "/api/posts/:id",
-    method: "PATCH",
-    fields: { id: "input", content: "input", options: { backgroundColor: "input" } },
-  },
-  {
-    name: "Delete Post",
-    endpoint: "/api/posts/:id",
-    method: "DELETE",
-    fields: { id: "input" },
-  },
-  {
-    name: "Create New Event",
-    endpoint: "/api/events",
-    method: "POST",
     fields: {}
   },
   {
-    name: "RSVP to Event",
-    endpoint: "/api/events/:id",
+    name: "Create group",
+    endpoint: "/api/groups",
+    method: "POST",
+    fields: { name: "input", capacity: "input", privacy: "input", location: "input" }
+  },
+  {
+    name: "Rename group",
+    endpoint: "/api/groups/:id",
+    method: "POST",
+    fields: { id: "input", name: "input" }
+  },
+  {
+    name: "Request to join group",
+    endpoint: "/api/requests/group/:id",
+    method: "POST",
+    fields: { id: "input", message: "textarea" }
+  },
+  {
+    name: "Accept group request",
+    endpoint: "/api/requests/accept/:requestId",
+    method: "PUT",
+    fields: { requestId: "input" }
+  },
+  {
+    name: "Decline group request",
+    endpoint: "/api/requests/decline/:requestId",
+    method: "PUT",
+    fields: { requestId: "input" }
+  },
+  {
+    name: "Withdraw group request",
+    endpoint: "/api/requests/:requestId",
+    method: "PUT",
+    fields: { requestId: "input" }
+  },
+  {
+    name: "Delete group",
+    endpoint: "/api/groups/:id",
+    method: "DELETE",
+    fields: { id: "input", }
+  },
+  {
+    name: "See all events",
+    endpoint: "/api/events",
+    method: "GET",
+    fields: {},
+  },
+  {
+    name: "Search events by name",
+    endpoint: "/api/events/name",
+    method: "GET",
+    fields: { name: "input" },
+  },
+  {
+    name: "See upcoming events",
+    endpoint: "/api/events/upcoming",
+    method: "GET",
+    fields: {},
+  },
+  {
+    name: "See past events",
+    endpoint: "/api/events/past",
+    method: "GET",
+    fields: {},
+  },
+  {
+    name: "Create new event (time format: MM/DD/YYYY TT:TT AM)",
+    endpoint: "/api/events",
+    method: "POST",
+    fields: { name: "input", group: "input", start: "input", end: "input", capacity: "input", location: "input" }
+  },
+  {
+    name: "Register to attend event",
+    endpoint: "/api/events/register/:id",
     method: "PUT",
     fields: { id: "input" }
   },
   {
-    name: "Unregister from Event",
-    endpoint: "/api/events/:id",
+    name: "Unregister from event",
+    endpoint: "/api/events/unregister/:id",
     method: "PUT",
     fields: { id: "input" }
   },
   {
-    name: "Delete Event",
+    name: "Delete event",
     endpoint: "/api/events/:id",
     method: "DELETE",
     fields: { id: "input" }
+  },
+  {
+    name: "Get friends",
+    endpoint: "/api/friends",
+    method: "GET",
+    fields: {}
+  },
+  {
+    name: "Get friend requests",
+    endpoint: "/api/friends/requests",
+    method: "GET",
+    fields: {}
+  },
+  {
+    name: "Send new friend request",
+    endpoint: "/api/requests/friend/:id",
+    method: "POST",
+    fields: { id: "input", message: "input" }
+  },
+  {
+    name: "Accept friend request",
+    endpoint: "/api/requests/accept/:requestId",
+    method: "PUT",
+    fields: { requestId: "input" }
+  },
+  {
+    name: "Reject friend request",
+    endpoint: "/api/requests/decline/:requestId",
+    method: "PUT",
+    fields: { requestId: "input" }
   }
 ];
 

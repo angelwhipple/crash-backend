@@ -6,7 +6,6 @@ import GroupingConcept from "./concepts/grouping";
 import LocatingConcept from "./concepts/locating";
 import RequestingConcept from "./concepts/requesting";
 import EventingConcept from "./concepts/eventing";
-import ExpiringConcept from "./concepts/expiring";
 
 // The app is a composition of concepts instantiated here
 // and synchronized together in `routes.ts`.
@@ -18,4 +17,3 @@ export const Grouping = new GroupingConcept("groups");
 export const Locating = new LocatingConcept("locations");
 export const Requesting = new RequestingConcept("requests");
 export const Eventing = new EventingConcept("events");
-export const Expiring = new ExpiringConcept("expirations");
